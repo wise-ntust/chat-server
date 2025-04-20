@@ -113,7 +113,9 @@ def exchange_code_for_token(
             try:
                 # Find or create user
                 user, is_new = find_or_create_user(db, user_info)
-                print(f"\n=== {'新用戶註冊' if is_new else '用戶登入'} ===")
+                logger.info(
+                    f"{'new user registered' if is_new else 'user logged in'}"
+                )
 
                 # Create or update account
                 account = create_or_update_account(
@@ -133,14 +135,12 @@ def exchange_code_for_token(
                 # Add user ID to token data
                 token_data["user_id"] = user.id
 
-                print(f"用戶 ID: {user.id}")
-                print(f"帳戶 ID: {account.id}")
-                print("================\n")
+                logger.info(f"user ID: {user.id}")
+                logger.info(f"account ID: {account.id}")
             except Exception as e:
-                print(f"\n=== 資料庫操作錯誤 ===")
-                print(f"錯誤類型: {type(e).__name__}")
-                print(f"錯誤詳情: {str(e)}")
-                print("================\n")
+                logger.error(f"database operation error")
+                logger.error(f"error type: {type(e).__name__}")
+                logger.error(f"error details: {str(e)}")
 
     return token_data
 

@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional, Tuple
@@ -9,6 +10,8 @@ from .database import Account
 from .database import Session as DbSession
 from .database import User
 
+logger = logging.getLogger("fastapi")
+
 
 def find_or_create_user(db: Session, user_info: Dict) -> Tuple[User, bool]:
     """
@@ -19,15 +22,15 @@ def find_or_create_user(db: Session, user_info: Dict) -> Tuple[User, bool]:
     if not email:
         raise ValueError("Email is required to find or create a user")
 
-    print(f"\n=== 嘗試查詢用戶： {email} ===")
+    logger.info(f"\ntry to find user: {email}")
 
     # Try to find existing user
     user = db.query(User).filter(User.email == email).first()
 
     if user:
-        print(f"找到現有用戶: ID = {user.id}, Email = {user.email}")
+        logger.info(f"found existing user: ID = {user.id}, Email = {user.email}")
     else:
-        print(f"未找到用戶，將創建新用戶")
+        logger.info(f"not found user, will create new user")
 
     is_new_user = False
 
@@ -72,19 +75,21 @@ def create_or_update_account(
     # Calculate expiry times if available
     access_expires = None
     if token_data.get("expires_in"):
-        # 修復：檢查是否為 datetime 對象並適當處理
+        # fix: check if it's a datetime object and handle it appropriately
         expires_in = token_data.get("expires_in")
         if isinstance(expires_in, datetime):
-            access_expires = expires_in  # 直接使用 datetime 對象
+            access_expires = expires_in  # directly use datetime object
         else:
             try:
-                # 原始邏輯，嘗試轉換為秒數
+                # original logic, try to convert to seconds
                 access_expires = datetime.now(timezone.utc) + timedelta(
                     seconds=int(expires_in)
                 )
             except (TypeError, ValueError) as e:
-                print(f"無法處理 expires_in 值: {expires_in}, 錯誤: {str(e)}")
-                # 設置一個預設過期時間，例如 1 小時後
+                logger.error(
+                    f"cannot handle expires_in value: {expires_in}, error: {str(e)}"
+                )
+                # set a default expiration time, e.g. 1 hour later
                 access_expires = datetime.now(timezone.utc) + timedelta(hours=1)
 
     refresh_expires = None
@@ -98,13 +103,13 @@ def create_or_update_account(
     if isinstance(token_data.get("scopes"), list):
         scope = " ".join(token_data.get("scopes"))
 
-    # 獲取 Google ID 作為 accountId
+    # get Google ID as accountId
     google_id = None
     if provider_id == "google" and token_data.get("user_info"):
         user_info = token_data.get("user_info")
         google_id = user_info.get("id")
 
-    # 如果沒有找到 Google ID，使用備用方案
+    # if not found Google ID, use backup plan
     account_id = google_id or f"{provider_id}_{user_id}"
 
     # Create or update account
@@ -112,7 +117,7 @@ def create_or_update_account(
         account = Account(
             userId=user_id,
             providerId=provider_id,
-            accountId=account_id,  # 使用 Google ID 或備用值
+            accountId=account_id,  # use Google ID or backup value
             accessToken=token_data.get("token"),
             refreshToken=token_data.get("refresh_token"),
             idToken=token_data.get("id_token"),
@@ -124,7 +129,7 @@ def create_or_update_account(
     else:
         # Update existing account
         if not account.accountId and account_id:
-            account.accountId = account_id  # 如果之前沒有設置 accountId，現在設置
+            account.accountId = account_id  # if not set accountId, set it now
 
         account.accessToken = token_data.get("token")
         if token_data.get("refresh_token"):  # Only update if present
@@ -169,12 +174,6 @@ def create_session(
     db.add(session)
     db.commit()
     db.refresh(session)
-    return session
-
-    return session
-
-    return session
-
     return session
 
 
